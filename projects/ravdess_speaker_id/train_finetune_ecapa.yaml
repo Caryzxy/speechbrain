@@ -1,0 +1,51 @@
+seed: 1986
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+data_folder: /home/caryzxy/datasets/Audio_Speech_Actors_01-24
+output_folder: /home/caryzxy/projects/ravdess_speaker_id/exp_ecapa_finetune
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+train_annotation: /home/caryzxy/projects/ravdess_speaker_id/ravdess_manifests/train.csv
+valid_annotation: /home/caryzxy/projects/ravdess_speaker_id/ravdess_manifests/valid.csv
+test_annotation: /home/caryzxy/projects/ravdess_speaker_id/ravdess_manifests/test.csv
+
+pretrained_savedir: /home/caryzxy/projects/ravdess_speaker_id/pretrained_ecapa
+
+number_of_epochs: 20
+batch_size: 8
+lr_start: 1.0e-4
+lr_final: 1.0e-5
+n_classes: 24
+emb_dim: 192
+classifier_hidden: 256
+num_workers: 0
+freeze_encoder: False
+
+dataloader_options:
+    batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
+        reduction: batch
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr_start>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
+    initial_value: !ref <lr_start>
+    final_value: !ref <lr_final>
+    epoch_count: !ref <number_of_epochs>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        classifier: !new:torch.nn.Identity
+        counter: !ref <epoch_counter>

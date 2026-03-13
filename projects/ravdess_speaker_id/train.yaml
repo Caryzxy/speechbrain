@@ -1,0 +1,86 @@
+# #################################
+# RAVDESS speaker identification
+# Clean config for custom CSV manifests
+# #################################
+
+seed: 1986
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+data_folder: /home/caryzxy/datasets/Audio_Speech_Actors_01-24
+output_folder: /home/caryzxy/projects/ravdess_speaker_id/exp
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+train_annotation: /home/caryzxy/projects/ravdess_speaker_id/ravdess_manifests/train.csv
+valid_annotation: /home/caryzxy/projects/ravdess_speaker_id/ravdess_manifests/valid.csv
+test_annotation: /home/caryzxy/projects/ravdess_speaker_id/ravdess_manifests/test.csv
+
+skip_prep: True
+feats_cache_dir: null
+
+sample_rate: 16000
+n_mels: 23
+
+number_of_epochs: 20
+batch_size: 8
+lr_start: 0.001
+lr_final: 0.0001
+n_classes: 24
+emb_dim: 512
+num_workers: 0
+
+dataloader_options:
+    batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
+        reduction: batch
+
+ckpt_interval_minutes: 15
+
+compute_features: !new:speechbrain.lobes.features.Fbank
+    n_mels: !ref <n_mels>
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: sentence
+    std_norm: False
+
+embedding_model: !new:__main__.SimpleSpeakerEncoder
+    in_channels: !ref <n_mels>
+    hidden_channels: 128
+    emb_dim: !ref <emb_dim>
+
+classifier: !new:__main__.Classifier
+    input_size: !ref <emb_dim>
+    lin_blocks: 1
+    lin_neurons: 256
+    out_neurons: !ref <n_classes>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+modules:
+    compute_features: !ref <compute_features>
+    embedding_model: !ref <embedding_model>
+    classifier: !ref <classifier>
+    mean_var_norm: !ref <mean_var_norm>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr_start>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
+    initial_value: !ref <lr_start>
+    final_value: !ref <lr_final>
+    epoch_count: !ref <number_of_epochs>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        embedding_model: !ref <embedding_model>
+        classifier: !ref <classifier>
+        normalizer: !ref <mean_var_norm>
+        counter: !ref <epoch_counter>

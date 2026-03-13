@@ -1,0 +1,92 @@
+# Generated 2026-03-13 from:
+# /home/caryzxy/projects/ravdess_speaker_id/train.yaml
+# yamllint disable
+# #################################
+# RAVDESS speaker identification
+# Clean config for custom CSV manifests
+# #################################
+
+seed: 1986
+__set_seed: !apply:speechbrain.utils.seed_everything [1986]
+
+data_folder: /home/caryzxy/datasets/Audio_Speech_Actors_01-24
+output_folder: /home/caryzxy/projects/ravdess_speaker_id/exp
+save_folder: /home/caryzxy/projects/ravdess_speaker_id/exp/save
+train_log: /home/caryzxy/projects/ravdess_speaker_id/exp/train_log.txt
+
+train_annotation: 
+  /home/caryzxy/projects/ravdess_speaker_id/ravdess_manifests/train.csv
+valid_annotation: 
+  /home/caryzxy/projects/ravdess_speaker_id/ravdess_manifests/valid.csv
+test_annotation: 
+  /home/caryzxy/projects/ravdess_speaker_id/ravdess_manifests/test.csv
+
+skip_prep: true
+feats_cache_dir:
+
+sample_rate: 16000
+n_mels: 23
+
+number_of_epochs: 20
+batch_size: 8
+lr_start: 0.001
+lr_final: 0.0001
+n_classes: 24
+emb_dim: 512
+num_workers: 0
+
+dataloader_options:
+  batch_size: 8
+  num_workers: 0
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+  save_file: /home/caryzxy/projects/ravdess_speaker_id/exp/train_log.txt
+
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+  metric: !name:speechbrain.nnet.losses.classification_error
+    reduction: batch
+
+ckpt_interval_minutes: 15
+
+compute_features: &id001 !new:speechbrain.lobes.features.Fbank
+  n_mels: 23
+
+mean_var_norm: &id004 !new:speechbrain.processing.features.InputNormalization
+
+  norm_type: sentence
+  std_norm: false
+
+embedding_model: &id002 !new:__main__.SimpleSpeakerEncoder
+  in_channels: 23
+  hidden_channels: 128
+  emb_dim: 512
+
+classifier: &id003 !new:__main__.Classifier
+  input_size: 512
+  lin_blocks: 1
+  lin_neurons: 256
+  out_neurons: 24
+
+epoch_counter: &id005 !new:speechbrain.utils.epoch_loop.EpochCounter
+  limit: 20
+
+modules:
+  compute_features: *id001
+  embedding_model: *id002
+  classifier: *id003
+  mean_var_norm: *id004
+opt_class: !name:torch.optim.Adam
+  lr: 0.001
+
+lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
+  initial_value: 0.001
+  final_value: 0.0001
+  epoch_count: 20
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: /home/caryzxy/projects/ravdess_speaker_id/exp/save
+  recoverables:
+    embedding_model: *id002
+    classifier: *id003
+    normalizer: *id004
+    counter: *id005
